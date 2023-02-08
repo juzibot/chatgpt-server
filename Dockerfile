@@ -5,7 +5,6 @@ WORKDIR /app
 
 # A wildcard is used to ensure both package.json AND package-lock.json are copied
 COPY package*.json ./
-COPY prisma ./prisma/
 ENV PUPPETEER_SKIP_DOWNLOAD=1
 # Install app dependencies
 RUN npm install
