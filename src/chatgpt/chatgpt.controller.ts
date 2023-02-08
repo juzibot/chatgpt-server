@@ -12,7 +12,8 @@ export class ChatgptController {
   constructor(private readonly chatgptService: ChatgptService) {}
   @Post('/account/create')
   async createChatgptAccount(@Body() createCatDto: any) {
-    return this.chatgptService.createChatGPTAccount(createCatDto);
+    await this.chatgptService.createChatGPTAccount(createCatDto);
+    return { message: 'success' };
   }
 
   @Get('/account')
