@@ -1,0 +1,22 @@
+diff --git a/node_modules/chatgpt/build/index.js b/node_modules/chatgpt/build/index.js
+index 316e906..c124732 100644
+--- a/node_modules/chatgpt/build/index.js
++++ b/node_modules/chatgpt/build/index.js
+@@ -568,7 +568,7 @@ var ChatGPTAPI = class extends AChatGPTAPI {
+           }
+         }
+       ],
+-      model: "text-davinci-002-render-next",
++      model: "text-davinci-002-render",
+       parent_message_id: parentMessageId
+     };
+     if (conversationId) {
+@@ -1545,7 +1545,7 @@ var ChatGPTAPIBrowser = class extends AChatGPTAPI {
+           }
+         }
+       ],
+-      model: this._isProAccount ? "text-davinci-002-render-paid" : "text-davinci-002-render-next",
++      model: this._isProAccount ? "text-davinci-002-render-paid" : "text-davinci-002-render",
+       parent_message_id: parentMessageId
+     };
+     if (conversationId) {
