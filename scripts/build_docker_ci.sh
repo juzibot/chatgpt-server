@@ -2,7 +2,7 @@
 set -e
 
 imageName='chatgpt-server'
-ECR_URL=juzi
+ECR_URL=juzibot
 PACKAGE_VERSION=$IMAGE_TAG
 
 echo current package version: "$PACKAGE_VERSION"
