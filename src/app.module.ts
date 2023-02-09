@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ChatgptModule } from './chatgpt/chatgpt.module';
 import configuration from './config/configuration';
@@ -23,6 +24,7 @@ import configuration from './config/configuration';
         }
       },
     }),
+    ScheduleModule.forRoot(),
     ChatgptModule,
   ],
 })
