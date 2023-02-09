@@ -55,7 +55,7 @@ export class AccountService {
     if (!account) {
       throw new Error(`can not get active chatgpt`);
     }
-    const email = account[Math.floor(Math.random() * account.length)].email;
+    const email = account[Math.floor(Math.random() * account.length)]?.email;
     return email;
   }
 
@@ -80,7 +80,7 @@ export class AccountService {
         password: true,
         status: true,
       },
-    })
+    });
   }
 
   async getDownAccounts () {

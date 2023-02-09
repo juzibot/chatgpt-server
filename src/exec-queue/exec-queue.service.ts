@@ -22,6 +22,7 @@ export interface RateOptions {
 }
 
 const MAX_QUEUE_SIZE = 1000
+const DEFAULT_TIMEOUT = 10 * MINUTE;
 
 @Injectable()
 export class ExecQueueService {
@@ -67,7 +68,7 @@ export class ExecQueueService {
       throw new Error(`can not get funcObj with queueId: ${queueId}.`)
     }
     const { delayAfter, delayBefore, func, resolve, reject, uniqueKey, timeout } = funcObj
-    const queueTimeout = typeof timeout === 'undefined' ? MINUTE : timeout
+    const queueTimeout = typeof timeout === 'undefined' ? DEFAULT_TIMEOUT : timeout
     if (delayBefore) {
       await sleep(delayBefore)
     }

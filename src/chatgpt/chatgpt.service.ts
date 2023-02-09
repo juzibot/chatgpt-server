@@ -21,7 +21,13 @@ export class ChatgptService implements OnModuleInit {
 
   private logger = new Logger('ChatgptService');
 
+  private startAccountRunning = false;
+
   async onModuleInit () {
+    void this.init();
+  }
+
+  async init () {
     await this.stopAllChatGPTInstances();
     await this.startAllDownAccount();
   }
@@ -80,8 +86,8 @@ export class ChatgptService implements OnModuleInit {
       const messageResult = await this.execQueueService.exec(() => this.sendMessageWithEmail(
         email,
         message,
-        sessionInfo.conversationId,
-        sessionInfo.parentMessageId,
+        sessionInfo.conversationId || undefined,
+        sessionInfo.parentMessageId || undefined,
       ), { queueId: email });
       await this.sessionService.updateSession(sessionId, {
         email,
@@ -105,8 +111,6 @@ export class ChatgptService implements OnModuleInit {
       }
       await this.sessionService.updateSession(sessionId, {
         email: null,
-        conversationId: null,
-        parentMessageId: null,
       });
     } 
   }
@@ -175,11 +179,21 @@ export class ChatgptService implements OnModuleInit {
   @Cron('1 * * * * *')
   async startAllDownAccount() {
     this.logger.debug('Start all down account');
-    const downAccounts = await this.accountService.getDownAccounts();
-    
-    this.logger.debug(`Found ${downAccounts.length} down accounts`);
-    for (const account of downAccounts) {
-      await this.startChatgptInstance(account.email);
+    if (this.startAccountRunning) {
+      this.logger.warn(`skip start all down account since another process is running.`);
+      return;
+    }
+
+    this.startAccountRunning = true;
+    try {
+      const downAccounts = await this.accountService.getDownAccounts();
+      
+      this.logger.debug(`Found ${downAccounts.length} down accounts`);
+      for (const account of downAccounts) {
+        await this.startChatgptInstance(account.email);
+      }
+    } finally {
+      this.startAccountRunning = false;
     }
   }
 
