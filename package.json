@@ -6,6 +6,7 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
+    "postinstall": "patch-package",
     "build": "nest build",
     "docker": "./scripts/build_docker.sh",
     "docker-ci": "./scripts/build_docker_ci.sh",
@@ -78,6 +79,5 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
-  },
-  "postinstall": "patch-package"
+  }
 }
