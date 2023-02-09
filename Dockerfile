@@ -27,4 +27,4 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/dist ./dist
 
-CMD xvfb-run --server-args="-screen 0 1280x800x24 --auto-servernum -ac -nolisten tcp -dpi 96 +extension RANDR" npm run start:prod
+CMD xvfb-run --auto-servernum --server-args="-screen 0 1280x800x24 -ac -nolisten tcp -dpi 96 +extension RANDR" npm run start:prod

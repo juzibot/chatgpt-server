@@ -7,8 +7,6 @@ PACKAGE_VERSION=$IMAGE_TAG
 
 echo current package version: "$PACKAGE_VERSION"
 
-npm run build
-
 echo docker build -t "$imageName":"$PACKAGE_VERSION" .
 docker build -t "$imageName":"$PACKAGE_VERSION" .
 

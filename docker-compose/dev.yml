@@ -1,0 +1,10 @@
+version: "3.5"
+services:
+  chatgpt:
+    container_name: chatgpt
+    image: juzibot/chatgpt-server:663072e
+    restart: always
+    ports:
+      - 4537:4537
+    environment:
+      - MONGO_URI=mongodb://localhost:27017/chatgpt
