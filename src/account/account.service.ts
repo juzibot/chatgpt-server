@@ -12,7 +12,7 @@ export class AccountService {
     email: string,
     password: string,
   ) {
-    const existingAccount = this.repository.findOneBy({ email });
+    const existingAccount = await this.repository.findOneBy({ email });
     if (existingAccount) {
       return existingAccount;
     }
