@@ -8,7 +8,7 @@ COPY package*.json ./
 COPY patches ./patches/
 ENV PUPPETEER_SKIP_DOWNLOAD=1
 # Install app dependencies
-RUN npm install
+RUN npm install && npx patch-package
 
 COPY . .
 
