@@ -65,6 +65,7 @@ export class ChatgptService implements OnModuleInit {
   async sendChatGPTMessage(
     message: string,
     sessionId: string,
+    isRetry = false,
   ) {
     const sessionInfo = await this.sessionService.getOrInitSession(sessionId);
     let email = sessionInfo.email;
@@ -94,7 +95,10 @@ export class ChatgptService implements OnModuleInit {
         conversationId: messageResult.conversationId,
         parentMessageId: messageResult.messageId,
       });
-      return messageResult;
+      return {
+        ...messageResult,
+        isRetry,
+      };
     } catch (e) {
       this.logger.error(`Send message to ${email} failed: ${e}`);
       if ((e?.stack || e?.message || '').includes('429')) {
@@ -111,7 +115,12 @@ export class ChatgptService implements OnModuleInit {
       }
       await this.sessionService.updateSession(sessionId, {
         email: null,
+        conversationId: null,
+        parentMessageId: null,
       });
+      if (!isRetry) {
+        return this.sendChatGPTMessage(message, sessionId, true);
+      }
     } 
   }
 
