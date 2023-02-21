@@ -13,7 +13,7 @@ export class ChatgptPoolService {
   chatgptPool: Map<string, any> = new Map();
 
   // Create new Chatgpt instance
-  async initChatGPTInstance(email: string, password: string) {
+  async initChatGPTInstance(email: string, password: string, isProAccount = false) {
     if (this.chatgptPool.has(email)) {
       return;
     }
@@ -29,6 +29,7 @@ export class ChatgptPoolService {
     const chatgpt = new ChatGPTAPIBrowser({
       email,
       password,
+      isProAccount,
       ...options,
       userDataDir: options.userDataDir
         ? `${options.userDataDir}/${email}`

@@ -16,7 +16,7 @@ index 316e906..c124732 100644
          }
        ],
 -      model: this._isProAccount ? "text-davinci-002-render-paid" : "text-davinci-002-render-next",
-+      model: this._isProAccount ? "text-davinci-002-render-paid" : "text-davinci-002-render",
++      model: this._isProAccount ? "text-davinci-002-render-sha" : "text-davinci-002-render",
        parent_message_id: parentMessageId
      };
      if (conversationId) {

@@ -53,8 +53,10 @@ export class ChatgptService implements OnModuleInit {
     password: string,
   ) {
     this.chatgptPoolService.deleteChatGPTInstanceByEmail(email);
-    this.accountService.updateAccountPassword(email, password)
-    this.chatgptPoolService.initChatGPTInstance(email, password);
+    const newAccount = await this.accountService.updateAccountPassword(email, password);
+    if (newAccount) {
+      this.chatgptPoolService.initChatGPTInstance(email, password, !!newAccount.isProAccount);
+    }
   }
 
   async getAllChatGPT() {
@@ -157,7 +159,7 @@ export class ChatgptService implements OnModuleInit {
       AccountStatus.INITIALIZING,
     );
     try {
-      await this.chatgptPoolService.initChatGPTInstance(email, account.password);
+      await this.chatgptPoolService.initChatGPTInstance(email, account.password, !!account.isProAccount);
       await this.accountService.updateAccountStatus(
         email,
         AccountStatus.RUNNING,
@@ -196,7 +198,6 @@ export class ChatgptService implements OnModuleInit {
     this.startAccountRunning = true;
     try {
       const downAccounts = await this.accountService.getDownAccounts();
-      
       this.logger.debug(`Found ${downAccounts.length} down accounts`);
       for (const account of downAccounts) {
         await this.startChatgptInstance(account.email);

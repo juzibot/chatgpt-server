@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { AccountStatus, ChatgptAccount } from 'src/entities';
-import { Repository } from 'typeorm';
+import { MongoRepository } from 'typeorm';
 
 @Injectable()
 export class AccountService {
   @InjectRepository(ChatgptAccount)
-  private repository: Repository<ChatgptAccount>
+  private repository: MongoRepository<ChatgptAccount>
 
   async createAccount (
     email: string,
@@ -36,11 +36,12 @@ export class AccountService {
   }
 
   async updateAccountPassword (email: string, password: string) {
-    await this.repository.update({
+    const result = await this.repository.findOneAndUpdate({
       email
     }, {
-      password
+      $set: { password },
     });
+    return result.value as ChatgptAccount | undefined;
   }
 
   async getOneRunningAccount () {

@@ -31,6 +31,9 @@ export class ChatgptAccount {
   })
   status: AccountStatus
 
+  @Column({ default: false })
+  isProAccount: boolean
+
   @Column({ nullable: true })
   errorMsg: string | null
 
