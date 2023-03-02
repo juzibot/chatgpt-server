@@ -42,6 +42,7 @@ export default class OfficialChatGPTService {
   async sendMessage(
     message: string,
     sessionId: string,
+    isRetry = false,
   ) {
     const apiKey = await this.accountService.getActiveApiKey();
     if (!apiKey) {
@@ -67,10 +68,15 @@ export default class OfficialChatGPTService {
     } catch (e) {
       if (e?.message.includes('access was terminated')) {
         await this.accountService.updateAccountStatusByKey(apiKey, AccountStatus.BANNED);
+        return this.sendMessage(message, sessionId, isRetry);
       } else if (e?.message.includes('limit')) {
         await this.accountService.updateAccountStatusByKey(apiKey, AccountStatus.FREQUENT);
+        return this.sendMessage(message, sessionId, isRetry);
       } else {
         await this.accountService.updateAccountStatusByKey(apiKey, AccountStatus.ERROR, e?.stack || e?.message);
+        if (!isRetry) {
+          return this.sendMessage(message, sessionId, true);
+        }
       }
       throw e;
     }

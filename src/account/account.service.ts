@@ -115,9 +115,10 @@ export class AccountService {
   }
 
   async getActiveApiKey (): Promise<string | null> {
-    const account = await this.repository.findOneBy({
-      status: AccountStatus.RUNNING,
-    });
-    return account?.apiKey || null;
+    const account = await this.repository.aggregate([
+      { $match: { status: AccountStatus.RUNNING, } },
+      { $sample: { size: 1 } }
+    ]).toArray();
+    return account[0]?.apiKey || null;
   }
 }
