@@ -75,6 +75,19 @@ export class AccountService {
     }, updateData);
   }
 
+  async updateAccountStatusByKey (apiKey: string, status: AccountStatus, errMsg?: string) {
+    const updateData: Partial<ChatgptAccount> = {
+      status,
+    }
+    if (status === AccountStatus.ERROR || status === AccountStatus.FREQUENT || status === AccountStatus.BANNED || status === AccountStatus.NO_CREDITS) {
+      updateData.errorTimestamp = Date.now();
+      updateData.errorMsg = errMsg;
+    };
+    await this.repository.update({
+      apiKey,
+    }, updateData);
+  }
+
   async getChatGPTAccount (email: string) {
     return this.repository.findOne({
       where: { email },

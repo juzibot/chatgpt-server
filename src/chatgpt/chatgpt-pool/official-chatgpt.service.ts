@@ -3,6 +3,7 @@ import axios from 'axios';
 import { encode as gptEncode } from 'gpt-3-encoder';
 import { AccountService } from 'src/account/account.service';
 import { ChatgptApiSessionService } from 'src/chatgpt-api-session/chatgpt-api-session.service';
+import { AccountStatus } from 'src/entities/chatgpt-account';
 import { MessageStore } from 'src/entities/chatgpt-api-session';
 
 export interface ModelOptions {
@@ -59,9 +60,20 @@ export default class OfficialChatGPTService {
     messages.push(userMessage);
 
     const prompt = this.buildPrompt(messages);
-    const result = await this.getCompletion(apiKey, prompt);
-
-    const reply = result.choices[0].message.content.trim();
+    let reply: string;
+    try {
+      const result = await this.getCompletion(apiKey, prompt);
+      reply = result.choices[0].message.content.trim();
+    } catch (e) {
+      if (e?.message.includes('access was terminated')) {
+        await this.accountService.updateAccountStatusByKey(apiKey, AccountStatus.BANNED);
+      } else if (e?.message.includes('limit')) {
+        await this.accountService.updateAccountStatusByKey(apiKey, AccountStatus.FREQUENT);
+      } else {
+        await this.accountService.updateAccountStatusByKey(apiKey, AccountStatus.ERROR, e?.stack || e?.message);
+      }
+      throw e;
+    }
 
     const replyMessage: MessageStore = {
       role: 'assistant',
