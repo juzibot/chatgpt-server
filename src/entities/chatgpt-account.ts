@@ -12,6 +12,8 @@ export enum AccountStatus {
   RUNNING,
   ERROR,
   FREQUENT,
+  BANNED,
+  NO_CREDITS,
 }
 
 @Entity()
@@ -24,6 +26,9 @@ export class ChatgptAccount {
 
   @Column()
   password: string
+
+  @Column()
+  apiKey: string
 
   @Column({
     type: 'enum',

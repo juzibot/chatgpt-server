@@ -11,6 +11,7 @@ export class AccountService {
   async createAccount (
     email: string,
     password: string,
+    apiKey: string,
   ) {
     const existingAccount = await this.repository.findOneBy({ email });
     if (existingAccount) {
@@ -20,7 +21,8 @@ export class AccountService {
     const account = this.repository.create();
     account.email = email;
     account.password = password;
-    account.status = AccountStatus.DOWN;
+    account.apiKey = apiKey;
+    account.status = apiKey ? AccountStatus.RUNNING : AccountStatus.DOWN;
     await this.repository.save(account);
   }
 
@@ -64,7 +66,7 @@ export class AccountService {
     const updateData: Partial<ChatgptAccount> = {
       status,
     }
-    if (status === AccountStatus.ERROR || status === AccountStatus.FREQUENT) {
+    if (status === AccountStatus.ERROR || status === AccountStatus.FREQUENT || status === AccountStatus.BANNED || status === AccountStatus.NO_CREDITS) {
       updateData.errorTimestamp = Date.now();
       updateData.errorMsg = errMsg;
     };
@@ -97,5 +99,12 @@ export class AccountService {
   async getAllRunningAccounts () {
     const accounts = await this.repository.find()
     return accounts.filter(a => a.status !== AccountStatus.DOWN);
+  }
+
+  async getActiveApiKey (): Promise<string | null> {
+    const account = await this.repository.findOneBy({
+      status: AccountStatus.RUNNING,
+    });
+    return account?.apiKey || null;
   }
 }

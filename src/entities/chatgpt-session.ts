@@ -12,7 +12,7 @@ export class SessionInfo {
 
   @Column()
   sessionId: string
-  
+
   @Column({ nullable: true })
   email: string
 

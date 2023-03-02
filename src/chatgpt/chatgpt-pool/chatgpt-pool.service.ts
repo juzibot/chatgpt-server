@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-// import type { SendMessageOptions, ChatGPTAPIBrowser } from 'chatgpt';
 import retry from 'async-retry';
+
 @Injectable()
 export class ChatgptPoolService {
   @Inject()

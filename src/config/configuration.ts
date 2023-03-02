@@ -1,6 +1,7 @@
 export default () => {
   return {
     port: process.env.PORT || 4537,
+    apiMode: process.env.API_MODE === 'true',
 
     mongoUri: process.env.MONGO_URI,
 

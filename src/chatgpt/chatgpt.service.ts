@@ -5,46 +5,64 @@ import { AccountService } from 'src/account/account.service';
 import { SessionService } from 'src/session/session.service';
 import { AccountStatus } from 'src/entities';
 import { ExecQueueService } from 'src/exec-queue/exec-queue.service';
+import { ConfigService } from '@nestjs/config';
+import OfficialChatGPTService from './chatgpt-pool/official-chatgpt.service';
+
 @Injectable()
 export class ChatgptService implements OnModuleInit {
   @Inject()
-  private chatgptPoolService: ChatgptPoolService;
+  private readonly chatgptPoolService: ChatgptPoolService;
 
   @Inject()
-  private accountService: AccountService;
+  private readonly officialChatgptService: OfficialChatGPTService;
 
   @Inject()
-  private sessionService: SessionService;
+  private readonly accountService: AccountService;
 
   @Inject()
-  private execQueueService: ExecQueueService;
+  private readonly sessionService: SessionService;
+
+  @Inject()
+  private readonly execQueueService: ExecQueueService;
 
   private logger = new Logger('ChatgptService');
 
   private startAccountRunning = false;
+
+  private apiMode: boolean;
+
+  constructor (configService: ConfigService) {
+    this.apiMode = configService.get<boolean>('apiMode');
+  }
 
   async onModuleInit () {
     void this.init();
   }
 
   async init () {
-    await this.stopAllChatGPTInstances();
-    await this.startAllDownAccount();
+    if (!this.apiMode) {
+      await this.stopAllChatGPTInstances();
+      await this.startAllDownAccount();
+    }
   }
 
   async createChatGPTAccount(account: {
     email: string;
     password: string;
+    apiKey: string;
   }) {
-    const { email, password } = account;
+    const { email, password, apiKey } = account;
     await this.accountService.createAccount(
       email,
       password,
+      apiKey,
     );
   }
 
   async deleteChatGPTAccount(email: string) {
-    this.chatgptPoolService.deleteChatGPTInstanceByEmail(email);
+    if (!this.apiMode) {
+      this.chatgptPoolService.deleteChatGPTInstanceByEmail(email);
+    }
     return this.accountService.deleteAccount(email);
   }
 
@@ -52,10 +70,14 @@ export class ChatgptService implements OnModuleInit {
     email: string,
     password: string,
   ) {
-    this.chatgptPoolService.deleteChatGPTInstanceByEmail(email);
+    if (!this.apiMode) {
+      this.chatgptPoolService.deleteChatGPTInstanceByEmail(email);
+    }
     const newAccount = await this.accountService.updateAccountPassword(email, password);
     if (newAccount) {
-      this.chatgptPoolService.initChatGPTInstance(email, password, !!newAccount.isProAccount);
+      if (!this.apiMode) {
+        this.chatgptPoolService.initChatGPTInstance(email, password, !!newAccount.isProAccount);
+      }
     }
   }
 
@@ -63,8 +85,19 @@ export class ChatgptService implements OnModuleInit {
     return this.accountService.getAllAccounts();
   }
 
+  async sendMessage (
+    message: string,
+    sessionId: string,
+  ) {
+    if (this.apiMode) {
+      return this.officialChatgptService.sendMessage(message, sessionId);
+    } else {
+      return this.sendChatGPTPoolMessage(message, sessionId);
+    }
+  }
+
   // Send Chatgpt Message via ChatgptPoolService
-  async sendChatGPTMessage(
+  private async sendChatGPTPoolMessage(
     message: string,
     sessionId: string,
     isRetry = false,
@@ -121,9 +154,9 @@ export class ChatgptService implements OnModuleInit {
         parentMessageId: null,
       });
       if (!isRetry) {
-        return this.sendChatGPTMessage(message, sessionId, true);
+        return this.sendChatGPTPoolMessage(message, sessionId, true);
       }
-    } 
+    }
   }
 
   async sendMessageWithEmail (
@@ -189,6 +222,10 @@ export class ChatgptService implements OnModuleInit {
 
   @Cron('1 * * * * *')
   async startAllDownAccount() {
+    if (this.apiMode) {
+      // skip this process for api mode
+      return;
+    }
     this.logger.debug('Start all down account');
     if (this.startAccountRunning) {
       this.logger.warn(`skip start all down account since another process is running.`);
@@ -209,6 +246,10 @@ export class ChatgptService implements OnModuleInit {
 
   @Cron('0 */10 * * * *')
   async restoreErrorOrFrequentAccount () {
+    if (this.apiMode) {
+      // skip this check for api mode
+      return;
+    }
     const accounts = await this.accountService.getAllAccounts();
     const errorAccounts = accounts.filter(a => a.status === AccountStatus.ERROR);
     const frequentAccounts = accounts.filter(a => a.status === AccountStatus.FREQUENT);
@@ -218,6 +259,21 @@ export class ChatgptService implements OnModuleInit {
     }
     for (const account of errorAccounts) {
       this.chatgptPoolService.refreshChatGPTInstanceByEmail(account.email);
+      await this.accountService.updateAccountStatus(account.email, AccountStatus.RUNNING);
+    }
+  }
+
+  @Cron('0 * * * * *')
+  async restoreFrequentKey () {
+    if (!this.apiMode) {
+      // skip for this check for non api mode
+      return;
+    }
+
+    const accounts = await this.accountService.getAllAccounts();
+    const frequentAccounts = accounts.filter(a => a.status === AccountStatus.FREQUENT);
+    this.logger.log(`got ${frequentAccounts.length} frequent api accounts, trying to restore...`);
+    for (const account of frequentAccounts) {
       await this.accountService.updateAccountStatus(account.email, AccountStatus.RUNNING);
     }
   }

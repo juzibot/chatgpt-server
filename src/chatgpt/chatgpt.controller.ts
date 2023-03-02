@@ -40,6 +40,6 @@ export class ChatgptController {
     @Body() messageDto: any
   ) {
     const { message } = messageDto;
-    return this.chatgptService.sendChatGPTMessage(message, sessionId);
+    return this.chatgptService.sendMessage(message, sessionId);
   }
 }
