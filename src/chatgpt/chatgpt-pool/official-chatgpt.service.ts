@@ -5,6 +5,7 @@ import { AccountService } from 'src/account/account.service';
 import { ChatgptApiSessionService } from 'src/chatgpt-api-session/chatgpt-api-session.service';
 import { AccountStatus } from 'src/entities/chatgpt-account';
 import { MessageStore } from 'src/entities/chatgpt-api-session';
+import { ExecQueueService } from 'src/exec-queue/exec-queue.service';
 
 export interface ModelOptions {
   model?: string,
@@ -27,6 +28,9 @@ export default class OfficialChatGPTService {
   @Inject()
   private readonly accountService: AccountService
 
+  @Inject()
+  private readonly execQueueService: ExecQueueService;
+
   private defaultModelOptions: ModelOptions
 
   constructor() {
@@ -39,7 +43,15 @@ export default class OfficialChatGPTService {
     };
   }
 
-  async sendMessage(
+  async sendMessage (
+    message: string,
+    sessionId: string,
+  ) {
+    const res = await this.execQueueService.exec(() => this._sendMessage(message, sessionId), { queueId: sessionId });
+    return res;
+  }
+
+  private async _sendMessage(
     message: string,
     sessionId: string,
     isRetry = false,
@@ -68,14 +80,16 @@ export default class OfficialChatGPTService {
     } catch (e) {
       if (e?.message.includes('access was terminated')) {
         await this.accountService.updateAccountStatusByKey(apiKey, AccountStatus.BANNED);
-        return this.sendMessage(message, sessionId, isRetry);
+        return this._sendMessage(message, sessionId, isRetry);
       } else if (e?.message.includes('limit')) {
         await this.accountService.updateAccountStatusByKey(apiKey, AccountStatus.FREQUENT);
-        return this.sendMessage(message, sessionId, isRetry);
+        return this._sendMessage(message, sessionId, isRetry);
+      } else if (e?.message.includes('retry your request')) {
+        return this._sendMessage(message, sessionId, isRetry);
       } else {
         await this.accountService.updateAccountStatusByKey(apiKey, AccountStatus.ERROR, e?.stack || e?.message);
         if (!isRetry) {
-          return this.sendMessage(message, sessionId, true);
+          return this._sendMessage(message, sessionId, true);
         }
       }
       throw e;
