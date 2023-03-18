@@ -39,7 +39,8 @@
     "mongodb": "^3.7.3",
     "patch-package": "^6.5.1",
     "reflect-metadata": "^0.1.13",
-    "rxjs": "^7.2.0"
+    "rxjs": "^7.2.0",
+    "socks-proxy-agent": "^7.0.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^9.0.0",

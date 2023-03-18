@@ -96,6 +96,13 @@ export class ChatgptService implements OnModuleInit {
     }
   }
 
+  async completion (body: any) {
+    if (!this.apiMode) {
+      throw new Error(`Can not use completion api with none api mode`);
+    }
+    return this.officialChatgptService.completion(body);
+  }
+
   // Send Chatgpt Message via ChatgptPoolService
   private async sendChatGPTPoolMessage(
     message: string,

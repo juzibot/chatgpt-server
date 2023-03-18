@@ -10,5 +10,8 @@ export default () => {
     executablePath: process.env.EXECUTABLE_PATH,
     proxyServer: process.env.PROXY_SERVER,
     userDataDir: process.env.USER_DATA_DIR,
+
+    // Socks proxy config, for local test only.
+    socksHost: process.env.SOCKS_HOST,
   }
 }

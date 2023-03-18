@@ -42,4 +42,9 @@ export class ChatgptController {
     const { message } = messageDto;
     return this.chatgptService.sendMessage(message, sessionId);
   }
+
+  @Post('completion')
+  async completion (@Body() body: any) {
+    return this.chatgptService.completion(body);
+  }
 }

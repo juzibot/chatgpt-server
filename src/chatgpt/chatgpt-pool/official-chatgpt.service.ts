@@ -1,6 +1,10 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { encode as gptEncode } from 'gpt-3-encoder';
+import { Agent as HttpAgent } from 'http';
+import { Agent as HttpsAgent } from 'https';
+import { SocksProxyAgent } from 'socks-proxy-agent';
 import { AccountService } from 'src/account/account.service';
 import { ChatgptApiSessionService } from 'src/chatgpt-api-session/chatgpt-api-session.service';
 import { AccountStatus } from 'src/entities/chatgpt-account';
@@ -31,6 +35,11 @@ export default class OfficialChatGPTService {
   @Inject()
   private readonly execQueueService: ExecQueueService;
 
+  @Inject()
+  private readonly configService: ConfigService;
+
+  private readonly logger = new Logger(OfficialChatGPTService.name);
+
   private defaultModelOptions: ModelOptions
 
   constructor() {
@@ -41,6 +50,7 @@ export default class OfficialChatGPTService {
       // presence_penalty: typeof modelOptions.presence_penalty === 'undefined' ? 0 : modelOptions.presence_penalty,
       // stop: modelOptions.stop || ['<|im_end|>', '<|im_sep|>'],
     };
+    this.logger.log(`constructed, defaultModelOptions: ${JSON.stringify(this.defaultModelOptions)}`);
   }
 
   async sendMessage (
@@ -49,6 +59,33 @@ export default class OfficialChatGPTService {
   ) {
     const res = await this.execQueueService.exec(() => this._sendMessage(message, sessionId), { queueId: sessionId });
     return res;
+  }
+
+  async completion (body: any, isRetry = false) {
+    const apiKey = await this.accountService.getActiveApiKey();
+    if (!apiKey) {
+      throw new Error(`Can not send message since there is no available api key to use.`);
+    }
+    try {
+      const result = await this.getCompletion(apiKey, body);
+      return result;
+    } catch (e) {
+      if (e?.message.includes('access was terminated')) {
+        await this.accountService.updateAccountStatusByKey(apiKey, AccountStatus.BANNED);
+        return this.completion(body, isRetry);
+      } else if (e?.message.includes('limit')) {
+        await this.accountService.updateAccountStatusByKey(apiKey, AccountStatus.FREQUENT);
+        return this.completion(body, isRetry);
+      } else if (e?.message.includes('retry your request')) {
+        return this.completion(body, isRetry);
+      } else {
+        await this.accountService.updateAccountStatusByKey(apiKey, AccountStatus.ERROR, e?.stack || e?.message);
+        if (!isRetry) {
+          return this.completion(body, true);
+        }
+      }
+      throw e;
+    }
   }
 
   private async _sendMessage(
@@ -75,7 +112,11 @@ export default class OfficialChatGPTService {
     const prompt = this.buildPrompt(messages);
     let reply: string;
     try {
-      const result = await this.getCompletion(apiKey, prompt);
+      const result = await this.getCompletion(apiKey, {
+        ...this.defaultModelOptions,
+        max_tokens: prompt.max_tokens,
+        messages: prompt.messages.map(m => ({ content: m.content, role: m.role })),
+      });
       reply = result.choices[0].message.content.trim();
     } catch (e) {
       if (e?.message.includes('access was terminated')) {
@@ -110,19 +151,25 @@ export default class OfficialChatGPTService {
     };
   }
 
-  private async getCompletion(apiKey: string, prompt: { max_tokens: number, messages: MessageStore[] }): Promise<any> {
+  private async getCompletion(apiKey: string, data: any): Promise<any> {
+    const socksHost = this.configService.get<string | undefined>('socksHost')
+    let httpAgent: HttpAgent | undefined
+    let httpsAgent: HttpsAgent | undefined
+    if (socksHost) {
+      httpAgent = new SocksProxyAgent(socksHost);
+      httpsAgent = new SocksProxyAgent(socksHost)
+    }
+
     try {
       const response = await axios('https://api.openai.com/v1/chat/completions', {
+        httpAgent,
+        httpsAgent,
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
         },
-        data: JSON.stringify({
-          ...this.defaultModelOptions,
-          max_tokens: prompt.max_tokens,
-          messages: prompt.messages.map(m => ({ content: m.content, role: m.role })),
-        }),
+        data: JSON.stringify(data),
       });
       if (response.status !== 200) {
         const body = response;
@@ -153,7 +200,8 @@ export default class OfficialChatGPTService {
         break;
       }
       outputMessages.unshift(message)
-      currentTokenCount += message.tokenCount;
+      // add 2 to count the stop word before and after the message to avoid exceed the length
+      currentTokenCount += (message.tokenCount + 2);
     }
     // Use up to 4096 tokens (prompt + response), but try to leave 1000 tokens for the response.
     const max_tokens = Math.min(MAX_TOKEN - currentTokenCount, RESPONSE_RESERVED_TOKEN);
