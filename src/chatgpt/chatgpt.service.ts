@@ -253,10 +253,6 @@ export class ChatgptService implements OnModuleInit {
 
   @Cron('0 */10 * * * *')
   async restoreAccountNonApiMode () {
-    if (this.apiMode) {
-      // skip this check for api mode
-      return;
-    }
     const accounts = await this.accountService.getAllAccounts();
     const errorAccounts = accounts.filter(a => a.status === AccountStatus.ERROR);
     const frequentAccounts = accounts.filter(a => a.status === AccountStatus.FREQUENT);
@@ -268,29 +264,9 @@ export class ChatgptService implements OnModuleInit {
       await this.accountService.updateAccountStatus(account.email, AccountStatus.RUNNING);
     }
     for (const account of errorAccounts) {
-      this.chatgptPoolService.refreshChatGPTInstanceByEmail(account.email);
-      await this.accountService.updateAccountStatus(account.email, AccountStatus.RUNNING);
-    }
-  }
-
-  @Cron('0 * * * * *')
-  async restoreAccountApiMode () {
-    if (!this.apiMode) {
-      // skip for this check for non api mode
-      return;
-    }
-
-    const accounts = await this.accountService.getAllAccounts();
-    const errorAccounts = accounts.filter(a => a.status === AccountStatus.ERROR);
-    const frequentAccounts = accounts.filter(a => a.status === AccountStatus.FREQUENT);
-    if (errorAccounts.length === 0 && frequentAccounts.length === 0) {
-      return;
-    }
-    this.logger.log(`got ${errorAccounts.length} error accounts, ${frequentAccounts.length} frequent accounts, trying to restore...`);
-    for (const account of frequentAccounts) {
-      await this.accountService.updateAccountStatus(account.email, AccountStatus.RUNNING);
-    }
-    for (const account of errorAccounts) {
+      if (!this.apiMode) {
+        this.chatgptPoolService.refreshChatGPTInstanceByEmail(account.email);
+      }
       await this.accountService.updateAccountStatus(account.email, AccountStatus.RUNNING);
     }
   }

@@ -4,6 +4,8 @@ import {
   Body,
   Get,
   Param,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { ChatgptService } from './chatgpt.service';
 
@@ -40,6 +42,9 @@ export class ChatgptController {
     @Body() messageDto: any
   ) {
     const { message } = messageDto;
+    if (!message) {
+      throw new HttpException('message can not be empty to request the api', HttpStatus.BAD_REQUEST);
+    }
     return this.chatgptService.sendMessage(message, sessionId);
   }
 
