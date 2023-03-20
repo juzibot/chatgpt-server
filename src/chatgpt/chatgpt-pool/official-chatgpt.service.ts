@@ -187,7 +187,7 @@ export default class OfficialChatGPTService {
           Authorization: `Bearer ${apiKey}`,
         },
         data: JSON.stringify(data),
-        timeout: 2 * MINUTE,
+        timeout: 1 * MINUTE,
       });
       if (response.status !== 200) {
         const body = response;
