@@ -7,7 +7,7 @@ import { Agent as HttpsAgent } from 'https';
 import { SocksProxyAgent } from 'socks-proxy-agent';
 import { AccountService } from 'src/account/account.service';
 import { ChatgptApiSessionService } from 'src/chatgpt-api-session/chatgpt-api-session.service';
-import { SECOND, sleep } from 'src/common/time';
+import { MINUTE, SECOND, sleep } from 'src/common/time';
 import { AccountStatus } from 'src/entities/chatgpt-account';
 import { MessageStore } from 'src/entities/chatgpt-api-session';
 import { ExecQueueService } from 'src/exec-queue/exec-queue.service';
@@ -187,6 +187,7 @@ export default class OfficialChatGPTService {
           Authorization: `Bearer ${apiKey}`,
         },
         data: JSON.stringify(data),
+        timeout: 2 * MINUTE,
       });
       if (response.status !== 200) {
         const body = response;
