@@ -31,6 +31,11 @@ const RETRY_ERROR_MESSAGE = [
   'Service Temporarily Unavailable',
 ];
 
+const BANNED_ERROR_MESSAGE = [
+  'Invalid URL',
+  'access was terminated',
+]
+
 @Injectable()
 export default class OfficialChatGPTService {
   @Inject()
@@ -130,7 +135,7 @@ export default class OfficialChatGPTService {
       return result;
     } catch (e) {
       const errorMsg = e?.stack || e?.message;
-      if (errorMsg.includes('access was terminated')) {
+      if (BANNED_ERROR_MESSAGE.some(msg => errorMsg.includes(msg))) {
         await this.accountService.updateAccountStatusByKey(apiKey, AccountStatus.BANNED);
         return this.getCompletion(apiKey, body, isRetry);
       } else if (errorMsg.includes('limit')) {
