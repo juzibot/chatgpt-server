@@ -99,6 +99,7 @@ export class AccountService {
     }
     if (UNAVAILABLE_STATUS.includes(status)) {
       updateData.errorTimestamp = Date.now();
+      updateData.errorTime = new Date();
       updateData.errorMsg = errMsg;
     };
     await this.repository.update({
@@ -134,11 +135,18 @@ export class AccountService {
   }
 
   async getActiveApiKey (): Promise<string | null> {
-    const account = await this.repository.aggregate([
-      { $match: { status: AccountStatus.RUNNING, } },
-      { $sample: { size: 1 } }
-    ]).toArray();
-    return account[0]?.apiKey || null;
+    const docs = await this.repository.find({
+      where: {
+        status: AccountStatus.RUNNING,
+        apiKey: { $exists: true },
+      },
+      select: { apiKey: true },
+    });
+    if (!docs.length) {
+      return null;
+    }
+    const account = docs[Math.floor(Math.random() * docs.length)];
+    return account?.apiKey || null;
   }
 
   // Check all account status, if the available ratio is low, send alarm.

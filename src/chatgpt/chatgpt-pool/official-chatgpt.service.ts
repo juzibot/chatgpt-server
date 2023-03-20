@@ -7,6 +7,7 @@ import { Agent as HttpsAgent } from 'https';
 import { SocksProxyAgent } from 'socks-proxy-agent';
 import { AccountService } from 'src/account/account.service';
 import { ChatgptApiSessionService } from 'src/chatgpt-api-session/chatgpt-api-session.service';
+import { SECOND, sleep } from 'src/common/time';
 import { AccountStatus } from 'src/entities/chatgpt-account';
 import { MessageStore } from 'src/entities/chatgpt-api-session';
 import { ExecQueueService } from 'src/exec-queue/exec-queue.service';
@@ -23,6 +24,7 @@ export interface ModelOptions {
 
 const MAX_TOKEN = 4096;
 const RESPONSE_RESERVED_TOKEN = 1000;
+const MAX_RETRY = 10;
 
 const RETRY_ERROR_MESSAGE = [
   'Internal server error',
@@ -129,27 +131,40 @@ export default class OfficialChatGPTService {
     apiKey: string,
     body: any,
     isRetry = false,
+    retryCount = 0,
   ): Promise<any> {
+    let changeApiKey = false;
     try {
       const result = await this.getCompletionRequest(apiKey, body);
       return result;
     } catch (e) {
       const errorMsg = e?.stack || e?.message;
       if (BANNED_ERROR_MESSAGE.some(msg => errorMsg.includes(msg))) {
-        await this.accountService.updateAccountStatusByKey(apiKey, AccountStatus.BANNED);
-        return this.getCompletion(apiKey, body, isRetry);
+        await this.accountService.updateAccountStatusByKey(apiKey, AccountStatus.BANNED, errorMsg);
+        // banned api key can use another api key retry
+        changeApiKey = true;
+        await sleep(0.5 * SECOND);
       } else if (errorMsg.includes('limit')) {
-        await this.accountService.updateAccountStatusByKey(apiKey, AccountStatus.FREQUENT);
-        return this.getCompletion(apiKey, body, isRetry);
+        await this.accountService.updateAccountStatusByKey(apiKey, AccountStatus.FREQUENT, errorMsg);
+        // rate limit can be retried with another api key
+        changeApiKey = true;
       } else if (RETRY_ERROR_MESSAGE.some(msg => errorMsg.includes(msg))) {
-        return this.getCompletion(apiKey, body, isRetry);
+        // errors that can be retried
+        await sleep(0.5 * SECOND);
       } else {
         await this.accountService.updateAccountStatusByKey(apiKey, AccountStatus.ERROR, errorMsg);
-        if (!isRetry) {
-          return this.getCompletion(apiKey, body, true);
+        if (isRetry) {
+          throw e;
         }
+        isRetry = true;
       }
-      throw e;
+      if (retryCount >= MAX_RETRY) {
+        throw new Error(`Failed to send message after ${MAX_RETRY} retries. last error: ${errorMsg}`);
+      }
+      if (changeApiKey) {
+        apiKey = await this.accountService.getActiveApiKey();
+      }
+      return this.getCompletion(apiKey, body, isRetry, retryCount + 1);
     }
   }
 
