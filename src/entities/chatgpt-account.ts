@@ -45,6 +45,9 @@ export class ChatgptAccount {
   @Column({ nullable: true })
   errorTimestamp: number | null
 
+  @Column({ nullable: true })
+  errorTime: Date | null
+
   @CreateDateColumn()
   createDate?: Date
 }

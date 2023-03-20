@@ -13,5 +13,8 @@ export default () => {
 
     // Socks proxy config, for local test only.
     socksHost: process.env.SOCKS_HOST,
+
+    // Lark webhook config to send notifications.
+    larkWebhookKey: process.env.LARK_WEBHOOK_KEY || '',
   }
 }

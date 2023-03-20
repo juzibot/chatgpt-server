@@ -252,7 +252,7 @@ export class ChatgptService implements OnModuleInit {
   }
 
   @Cron('0 */10 * * * *')
-  async restoreErrorOrFrequentAccount () {
+  async restoreAccountNonApiMode () {
     if (this.apiMode) {
       // skip this check for api mode
       return;
@@ -260,6 +260,9 @@ export class ChatgptService implements OnModuleInit {
     const accounts = await this.accountService.getAllAccounts();
     const errorAccounts = accounts.filter(a => a.status === AccountStatus.ERROR);
     const frequentAccounts = accounts.filter(a => a.status === AccountStatus.FREQUENT);
+    if (errorAccounts.length === 0 && frequentAccounts.length === 0) {
+      return;
+    }
     this.logger.log(`got ${errorAccounts.length} error accounts, ${frequentAccounts.length} frequent accounts, trying to restore...`);
     for (const account of frequentAccounts) {
       await this.accountService.updateAccountStatus(account.email, AccountStatus.RUNNING);
@@ -271,16 +274,23 @@ export class ChatgptService implements OnModuleInit {
   }
 
   @Cron('0 * * * * *')
-  async restoreFrequentKey () {
+  async restoreAccountApiMode () {
     if (!this.apiMode) {
       // skip for this check for non api mode
       return;
     }
 
     const accounts = await this.accountService.getAllAccounts();
+    const errorAccounts = accounts.filter(a => a.status === AccountStatus.ERROR);
     const frequentAccounts = accounts.filter(a => a.status === AccountStatus.FREQUENT);
-    this.logger.log(`got ${frequentAccounts.length} frequent api accounts, trying to restore...`);
+    if (errorAccounts.length === 0 && frequentAccounts.length === 0) {
+      return;
+    }
+    this.logger.log(`got ${errorAccounts.length} error accounts, ${frequentAccounts.length} frequent accounts, trying to restore...`);
     for (const account of frequentAccounts) {
+      await this.accountService.updateAccountStatus(account.email, AccountStatus.RUNNING);
+    }
+    for (const account of errorAccounts) {
       await this.accountService.updateAccountStatus(account.email, AccountStatus.RUNNING);
     }
   }
