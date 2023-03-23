@@ -1,9 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { AccountStatus, ChatgptAccount } from 'src/entities';
+import { AccountStatus, AccountType, ChatgptAccount } from 'src/entities';
 import { AlarmType } from 'src/notification/notification.interface';
 import { NotificationService } from 'src/notification/notification.service';
 import { MongoRepository } from 'typeorm';
+import { ObjectId } from 'mongodb';
+import { AccountWeightService } from 'src/account-weight/account-weight.service';
 
 const UNAVAILABLE_STATUS = [
   AccountStatus.ERROR,
@@ -22,10 +24,16 @@ export class AccountService {
   @Inject()
   private readonly notificationService: NotificationService;
 
+  @Inject()
+  private readonly accountWeightService: AccountWeightService;
+
   async createAccount (
-    email: string,
-    password: string,
     apiKey: string,
+    email?: string,
+    password?: string,
+    type = AccountType.OPEN_AI,
+    resourceName?: string,
+    deploymentId?: string,
   ) {
     const existingAccount = await this.repository.findOneBy({ email });
     if (existingAccount) {
@@ -35,8 +43,11 @@ export class AccountService {
     const account = this.repository.create();
     account.email = email;
     account.password = password;
+    account.type = type;
     account.apiKey = apiKey;
     account.status = apiKey ? AccountStatus.RUNNING : AccountStatus.DOWN;
+    account.resourceName = resourceName;
+    account.deploymentId = deploymentId;
     await this.repository.save(account);
 
     void this.checkAllAccountStatus();
@@ -78,7 +89,26 @@ export class AccountService {
     return email;
   }
 
-  async updateAccountStatus (email: string, status: AccountStatus, errMsg?: string) {
+  async getValidAccount () {
+    const accountType = await this.accountWeightService.getAccountType();
+    const matchQuery: Partial<ChatgptAccount> = { status: AccountStatus.RUNNING };
+    if (accountType) {
+      matchQuery.type = accountType;
+    }
+
+    const docs = await this.repository.aggregate<ChatgptAccount>([{
+      $match: matchQuery,
+    }, {
+      $sample: { size: 10 },
+    }]).toArray();
+    if (!docs.length) {
+      return null;
+    }
+    const account = docs[Math.floor(Math.random() * docs.length)];
+    return account;
+  }
+
+  async updateAccountStatusByEmail (email: string, status: AccountStatus, errMsg?: string) {
     const updateData: Partial<ChatgptAccount> = {
       status,
     }
@@ -93,7 +123,7 @@ export class AccountService {
     void this.checkAllAccountStatus();
   }
 
-  async updateAccountStatusByKey (apiKey: string, status: AccountStatus, errMsg?: string) {
+  async updateAccountStatus (accountId: string, status: AccountStatus, errMsg?: string) {
     const updateData: Partial<ChatgptAccount> = {
       status,
     }
@@ -103,7 +133,7 @@ export class AccountService {
       updateData.errorMsg = errMsg;
     };
     await this.repository.update({
-      apiKey,
+      _id: new ObjectId(accountId),
     }, updateData);
     void this.checkAllAccountStatus();
   }

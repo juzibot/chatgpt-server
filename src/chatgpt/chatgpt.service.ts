@@ -7,6 +7,7 @@ import { AccountStatus } from 'src/entities';
 import { ExecQueueService } from 'src/exec-queue/exec-queue.service';
 import { ConfigService } from '@nestjs/config';
 import OfficialChatGPTService from './chatgpt-pool/official-chatgpt.service';
+import { CreateAccountRequestBody } from './chatgpt.dto';
 
 @Injectable()
 export class ChatgptService implements OnModuleInit {
@@ -46,16 +47,15 @@ export class ChatgptService implements OnModuleInit {
     }
   }
 
-  async createChatGPTAccount(account: {
-    email: string;
-    password: string;
-    apiKey: string;
-  }) {
-    const { email, password, apiKey } = account;
+  async createChatGPTAccount(account: CreateAccountRequestBody) {
+    const { email, password, apiKey, type, resourceName, deploymentId } = account;
     await this.accountService.createAccount(
+      apiKey,
       email,
       password,
-      apiKey,
+      type,
+      resourceName,
+      deploymentId,
     );
   }
 
@@ -144,12 +144,12 @@ export class ChatgptService implements OnModuleInit {
     } catch (e) {
       this.logger.error(`Send message to ${email} failed: ${e}`);
       if ((e?.stack || e?.message || '').includes('429')) {
-        this.accountService.updateAccountStatus(
+        this.accountService.updateAccountStatusByEmail(
           email,
           AccountStatus.FREQUENT,
         );
       } else {
-        this.accountService.updateAccountStatus(
+        this.accountService.updateAccountStatusByEmail(
           email,
           AccountStatus.ERROR,
           e?.stack || e?.message,
@@ -194,19 +194,19 @@ export class ChatgptService implements OnModuleInit {
       return;
     }
     this.logger.debug(`Start account ${account.email}`);
-    await this.accountService.updateAccountStatus(
+    await this.accountService.updateAccountStatusByEmail(
       email,
       AccountStatus.INITIALIZING,
     );
     try {
       await this.chatgptPoolService.initChatGPTInstance(email, account.password, !!account.isProAccount);
-      await this.accountService.updateAccountStatus(
+      await this.accountService.updateAccountStatusByEmail(
         email,
         AccountStatus.RUNNING,
       );
     } catch (err) {
       this.logger.error(`Error starting account ${account.email}: ${err}`);
-      await this.accountService.updateAccountStatus(
+      await this.accountService.updateAccountStatusByEmail(
         email,
         AccountStatus.ERROR,
         err?.stack || err?.message,
@@ -219,7 +219,7 @@ export class ChatgptService implements OnModuleInit {
     const accounts = await this.accountService.getAllRunningAccounts();
     for (const account of accounts) {
       this.chatgptPoolService.deleteChatGPTInstanceByEmail(account.email);
-      await this.accountService.updateAccountStatus(
+      await this.accountService.updateAccountStatusByEmail(
         account.email,
         AccountStatus.DOWN,
       );
@@ -261,13 +261,13 @@ export class ChatgptService implements OnModuleInit {
     }
     this.logger.log(`got ${errorAccounts.length} error accounts, ${frequentAccounts.length} frequent accounts, trying to restore...`);
     for (const account of frequentAccounts) {
-      await this.accountService.updateAccountStatus(account.email, AccountStatus.RUNNING);
+      await this.accountService.updateAccountStatusByEmail(account.email, AccountStatus.RUNNING);
     }
     for (const account of errorAccounts) {
       if (!this.apiMode) {
         this.chatgptPoolService.refreshChatGPTInstanceByEmail(account.email);
       }
-      await this.accountService.updateAccountStatus(account.email, AccountStatus.RUNNING);
+      await this.accountService.updateAccountStatusByEmail(account.email, AccountStatus.RUNNING);
     }
   }
 }

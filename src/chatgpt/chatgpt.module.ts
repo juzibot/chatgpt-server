@@ -7,6 +7,7 @@ import { SessionModule } from 'src/session/session.module';
 import { ExecQueueModule } from 'src/exec-queue/exec-queue.module';
 import OfficialChatGPTService from './chatgpt-pool/official-chatgpt.service';
 import { ChatgptApiSessionModule } from 'src/chatgpt-api-session/chatgpt-api-session.module';
+import { OpenAIGatewayService } from './chatgpt-pool/openai-gateway.service';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { ChatgptApiSessionModule } from 'src/chatgpt-api-session/chatgpt-api-ses
     ChatgptService,
     ChatgptPoolService,
     OfficialChatGPTService,
+    OpenAIGatewayService,
   ],
   controllers: [
     ChatgptController,

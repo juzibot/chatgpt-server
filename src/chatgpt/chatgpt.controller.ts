@@ -7,14 +7,17 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
+import { AccountType } from 'src/entities/chatgpt-account';
+import { CreateAccountRequestBody } from './chatgpt.dto';
 import { ChatgptService } from './chatgpt.service';
 
 @Controller('chatgpt')
 export class ChatgptController {
   constructor(private readonly chatgptService: ChatgptService) {}
   @Post('/account/create')
-  async createChatgptAccount(@Body() createCatDto: any) {
-    await this.chatgptService.createChatGPTAccount(createCatDto);
+  async createChatgptAccount(@Body() createAccountBody: CreateAccountRequestBody) {
+    this.validateCreateAccountBody(createAccountBody);
+    await this.chatgptService.createChatGPTAccount(createAccountBody);
     return { message: 'success' };
   }
 
@@ -51,5 +54,26 @@ export class ChatgptController {
   @Post('completion')
   async completion (@Body() body: any) {
     return this.chatgptService.completion(body);
+  }
+
+  private validateCreateAccountBody (createAccountBody: CreateAccountRequestBody) {
+    const type = createAccountBody.type || AccountType.OPEN_AI;
+    switch (type) {
+      case AccountType.OPEN_AI:
+        if (!createAccountBody.apiKey) {
+          throw new HttpException('apiKey is required for open ai account', HttpStatus.BAD_REQUEST);
+        }
+        if (!createAccountBody.email || !createAccountBody.password) {
+          throw new HttpException('email and password is required for open ai account', HttpStatus.BAD_REQUEST);
+        }
+        break;
+      case AccountType.AZURE:
+        if (!createAccountBody.apiKey || !createAccountBody.resourceName || !createAccountBody.deploymentId) {
+          throw new HttpException('apiKey, resourceName, deploymentId is required for azure account', HttpStatus.BAD_REQUEST);
+        }
+        break;
+      default:
+        throw new HttpException(`type ${type} is not supported`, HttpStatus.BAD_REQUEST);
+    }
   }
 }

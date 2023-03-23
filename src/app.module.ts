@@ -4,6 +4,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ChatgptModule } from './chatgpt/chatgpt.module';
 import { ChatgptApiSessionModule } from './chatgpt-api-session/chatgpt-api-session.module';
+import { AccountWeightModule } from './account-weight/account-weight.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -28,6 +29,7 @@ import configuration from './config/configuration';
     ScheduleModule.forRoot(),
     ChatgptModule,
     ChatgptApiSessionModule,
+    AccountWeightModule,
   ],
 })
 export class AppModule {}

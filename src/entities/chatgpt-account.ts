@@ -16,15 +16,20 @@ export enum AccountStatus {
   NO_CREDITS,
 }
 
+export enum AccountType {
+  OPEN_AI = 'OPEN_AI',
+  AZURE = 'AZURE',
+}
+
 @Entity()
 export class ChatgptAccount {
   @ObjectIdColumn()
   _id: ObjectID
 
-  @Column()
+  @Column({ nullable: true })
   email: string
 
-  @Column()
+  @Column({ nullable: true })
   password: string
 
   @Column()
@@ -35,6 +40,19 @@ export class ChatgptAccount {
     enum: AccountStatus,
   })
   status: AccountStatus
+
+  @Column({
+    type: 'enum',
+    enum: AccountType,
+    default: AccountType.OPEN_AI,
+  })
+  type: AccountType
+
+  @Column({ nullable: true })
+  resourceName: string | null
+
+  @Column({ nullable: true })
+  deploymentId: string | null
 
   @Column({ default: false })
   isProAccount: boolean

@@ -16,5 +16,7 @@ export default () => {
 
     // Lark webhook config to send notifications.
     larkWebhookKey: process.env.LARK_WEBHOOK_KEY || '',
+
+    azureApiVersion: process.env.AZURE_API_VERSION || '2023-03-15-preview',
   }
 }

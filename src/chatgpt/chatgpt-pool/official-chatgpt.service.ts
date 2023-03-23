@@ -1,16 +1,12 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import axios from 'axios';
-import { encode as gptEncode } from 'gpt-3-encoder';
-import { Agent as HttpAgent } from 'http';
-import { Agent as HttpsAgent } from 'https';
-import { SocksProxyAgent } from 'socks-proxy-agent';
 import { AccountService } from 'src/account/account.service';
 import { ChatgptApiSessionService } from 'src/chatgpt-api-session/chatgpt-api-session.service';
-import { MINUTE, SECOND, sleep } from 'src/common/time';
-import { AccountStatus } from 'src/entities/chatgpt-account';
+import { getTokenCount } from 'src/common/gpt';
+import { SECOND, sleep } from 'src/common/time';
+import { AccountStatus, AccountType } from 'src/entities/chatgpt-account';
 import { MessageStore } from 'src/entities/chatgpt-api-session';
 import { ExecQueueService } from 'src/exec-queue/exec-queue.service';
+import { OpenAIGatewayService } from './openai-gateway.service';
 
 export interface ModelOptions {
   model?: string,
@@ -50,7 +46,7 @@ export default class OfficialChatGPTService {
   private readonly execQueueService: ExecQueueService;
 
   @Inject()
-  private readonly configService: ConfigService;
+  private readonly openAiGateway: OpenAIGatewayService;
 
   private readonly logger = new Logger(OfficialChatGPTService.name);
 
@@ -88,16 +84,11 @@ export default class OfficialChatGPTService {
     message: string,
     sessionId: string,
   ) {
-    const apiKey = await this.accountService.getActiveApiKey();
-    if (!apiKey) {
-      throw new Error(`Can not send message since there is no available api key to use.`);
-    }
     const conversation = await this.chatgptApiSessionService.getSession(sessionId);
-
     const userMessage: MessageStore = {
       role: 'user',
       content: message,
-      tokenCount: this.getTokenCount(message),
+      tokenCount: getTokenCount(message),
       timestamp: Date.now(),
     };
 
@@ -105,7 +96,7 @@ export default class OfficialChatGPTService {
     messages.push(userMessage);
 
     const prompt = this.buildPrompt(messages);
-    const result = await this.getCompletion(apiKey, {
+    const result = await this.getCompletion({
       ...this.defaultModelOptions,
       max_tokens: prompt.max_tokens,
       messages: prompt.messages.map(m => ({ content: m.content, role: m.role })),
@@ -115,7 +106,7 @@ export default class OfficialChatGPTService {
     const replyMessage: MessageStore = {
       role: 'assistant',
       content: reply,
-      tokenCount: this.getTokenCount(reply),
+      tokenCount: getTokenCount(reply),
       timestamp: Date.now(),
     };
 
@@ -128,31 +119,39 @@ export default class OfficialChatGPTService {
   }
 
   private async getCompletion(
-    apiKey: string,
     body: any,
     isRetry = false,
     retryCount = 0,
   ): Promise<any> {
-    let changeApiKey = false;
+    const account = await this.accountService.getValidAccount();
+    if (!account) {
+      throw new Error(`Can not send message since there is no available account to use.`);
+    }
+    const accountId = account._id.toHexString();
+
     try {
-      const result = await this.getCompletionRequest(apiKey, body);
+      const result = await this.openAiGateway.requestCompletion(account, body);
       return result;
     } catch (e) {
       const errorMsg = e?.stack || e?.message;
       if (BANNED_ERROR_MESSAGE.some(msg => errorMsg.includes(msg))) {
-        await this.accountService.updateAccountStatusByKey(apiKey, AccountStatus.BANNED, errorMsg);
+        if (account.type !== AccountType.AZURE) {
+          await this.accountService.updateAccountStatus(accountId, AccountStatus.BANNED, errorMsg);
+        }
         // banned api key can use another api key retry
-        changeApiKey = true;
         await sleep(0.5 * SECOND);
       } else if (errorMsg.includes('limit')) {
-        await this.accountService.updateAccountStatusByKey(apiKey, AccountStatus.FREQUENT, errorMsg);
+        if (account.type !== AccountType.AZURE) {
+          await this.accountService.updateAccountStatus(accountId, AccountStatus.FREQUENT, errorMsg);
+        }
         // rate limit can be retried with another api key
-        changeApiKey = true;
       } else if (RETRY_ERROR_MESSAGE.some(msg => errorMsg.includes(msg))) {
         // errors that can be retried
         await sleep(0.5 * SECOND);
       } else {
-        await this.accountService.updateAccountStatusByKey(apiKey, AccountStatus.ERROR, errorMsg);
+        if (account.type !== AccountType.AZURE) {
+          await this.accountService.updateAccountStatus(accountId, AccountStatus.ERROR, errorMsg);
+        }
         if (isRetry) {
           throw e;
         }
@@ -161,49 +160,7 @@ export default class OfficialChatGPTService {
       if (retryCount >= MAX_RETRY) {
         throw new Error(`Failed to send message after ${MAX_RETRY} retries. last error: ${errorMsg}`);
       }
-      if (changeApiKey) {
-        apiKey = await this.accountService.getActiveApiKey();
-      }
-      return this.getCompletion(apiKey, body, isRetry, retryCount + 1);
-    }
-  }
-
-  private async getCompletionRequest(apiKey: string, data: any): Promise<any> {
-    const socksHost = this.configService.get<string | undefined>('socksHost')
-    let httpAgent: HttpAgent | undefined
-    let httpsAgent: HttpsAgent | undefined
-    if (socksHost) {
-      httpAgent = new SocksProxyAgent(socksHost);
-      httpsAgent = new SocksProxyAgent(socksHost)
-    }
-
-    try {
-      const response = await axios('https://api.openai.com/v1/chat/completions', {
-        httpAgent,
-        httpsAgent,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        data: JSON.stringify(data),
-        timeout: 1 * MINUTE,
-      });
-      if (response.status !== 200) {
-        const body = response;
-        const error: any = new Error(`Failed to send message. HTTP ${response.status} - ${body}`);
-        error.status = response.status;
-        throw error;
-      }
-      return response.data;
-    } catch (e) {
-      if (e.response) {
-        throw new Error(`Failed to send message. HTTP ${e.response.status} - ${JSON.stringify(e.response.data)}`);
-      } else if (e.request) {
-        throw new Error(`Failed to send message. request: ${e.request}`);
-      } else {
-        throw e;
-      }
+      return this.getCompletion(body, isRetry, retryCount + 1);
     }
   }
 
@@ -228,9 +185,5 @@ export default class OfficialChatGPTService {
       max_tokens,
       messages: outputMessages,
     };
-  }
-
-  private getTokenCount(text: string) {
-    return gptEncode(text).length;
   }
 }
