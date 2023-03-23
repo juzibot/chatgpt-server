@@ -101,7 +101,7 @@ export default class OfficialChatGPTService {
       max_tokens: prompt.max_tokens,
       messages: prompt.messages.map(m => ({ content: m.content, role: m.role })),
     });
-    const reply = result.choices[0].message.content.trim();
+    const reply = result?.choices[0]?.message?.content?.trim() || '';
 
     const replyMessage: MessageStore = {
       role: 'assistant',
