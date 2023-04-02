@@ -6,14 +6,15 @@ import { SECOND, sleep } from 'src/common/time';
 import { AccountStatus, AccountType } from 'src/entities/chatgpt-account';
 import { MessageStore } from 'src/entities/chatgpt-api-session';
 import { ExecQueueService } from 'src/exec-queue/exec-queue.service';
+import { ChatGPTCompletionBody } from '../chatgpt.dto';
 import { OpenAIGatewayService } from './openai-gateway.service';
 
 export interface ModelOptions {
-  model?: string,
+  model: string,
   temperature?: number,
   top_p?: number,
   presence_penalty?: number,
-  stop?: string[],
+  stop?: string,
   messages?: any,
   max_tokens?: number,
 }
@@ -55,10 +56,6 @@ export default class OfficialChatGPTService {
   constructor() {
     this.defaultModelOptions = {
       model: 'gpt-3.5-turbo',
-      // temperature: typeof modelOptions.temperature === 'undefined' ? 1 : modelOptions.temperature,
-      // top_p: typeof modelOptions.top_p === 'undefined' ? 1 : modelOptions.top_p,
-      // presence_penalty: typeof modelOptions.presence_penalty === 'undefined' ? 0 : modelOptions.presence_penalty,
-      // stop: modelOptions.stop || ['<|im_end|>', '<|im_sep|>'],
     };
     this.logger.log(`constructed, defaultModelOptions: ${JSON.stringify(this.defaultModelOptions)}`);
   }
@@ -71,12 +68,8 @@ export default class OfficialChatGPTService {
     return res;
   }
 
-  async completion (body: any) {
-    const apiKey = await this.accountService.getActiveApiKey();
-    if (!apiKey) {
-      throw new Error(`Can not send message since there is no available api key to use.`);
-    }
-    const result = await this.getCompletion(apiKey, body);
+  async completion (body: ChatGPTCompletionBody) {
+    const result = await this.getCompletion(body);
     return result;
   }
 
@@ -119,7 +112,7 @@ export default class OfficialChatGPTService {
   }
 
   private async getCompletion(
-    body: any,
+    body: ChatGPTCompletionBody,
     isRetry = false,
     retryCount = 0,
   ): Promise<any> {
@@ -134,6 +127,11 @@ export default class OfficialChatGPTService {
       return result;
     } catch (e) {
       const errorMsg = e?.stack || e?.message;
+      const status = e.status;
+      if (status === 400) {
+        // directly throw error for bad request
+        throw e;
+      }
       if (BANNED_ERROR_MESSAGE.some(msg => errorMsg.includes(msg))) {
         if (account.type !== AccountType.AZURE) {
           await this.accountService.updateAccountStatus(accountId, AccountStatus.BANNED, errorMsg);
@@ -145,7 +143,7 @@ export default class OfficialChatGPTService {
           await this.accountService.updateAccountStatus(accountId, AccountStatus.FREQUENT, errorMsg);
         }
         // rate limit can be retried with another api key
-      } else if (RETRY_ERROR_MESSAGE.some(msg => errorMsg.includes(msg))) {
+      } else if (status === 500 || RETRY_ERROR_MESSAGE.some(msg => errorMsg.includes(msg))) {
         // errors that can be retried
         await sleep(0.5 * SECOND);
       } else {

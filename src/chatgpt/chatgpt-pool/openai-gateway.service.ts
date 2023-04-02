@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { HttpException, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { Agent as HttpAgent } from 'http';
@@ -58,15 +58,13 @@ export class OpenAIGatewayService {
         timeout: 1 * MINUTE,
       });
       if (response.status !== 200) {
-        const body = response;
-        const error: any = new Error(`Failed to send message. HTTP ${response.status} - ${body}`);
-        error.status = response.status;
+        const error = new HttpException(response.data, response.status);
         throw error;
       }
       return response.data;
     } catch (e) {
       if (e.response) {
-        throw new Error(`Failed to send message. HTTP ${e.response.status} - ${JSON.stringify(e.response.data)}`);
+        throw new HttpException(e.response.data, e.response.status);
       } else if (e.request) {
         throw new Error(`Failed to send message. request: ${e.request}`);
       } else {
@@ -94,15 +92,13 @@ export class OpenAIGatewayService {
         timeout: 1 * MINUTE,
       });
       if (response.status !== 200) {
-        const body = response;
-        const error: any = new Error(`Failed to send message. HTTP ${response.status} - ${body}`);
-        error.status = response.status;
+        const error = new HttpException(response.data, response.status);
         throw error;
       }
       return response.data;
     } catch (e) {
       if (e.response) {
-        throw new Error(`Failed to send message. HTTP ${e.response.status} - ${JSON.stringify(e.response.data)}`);
+        throw new HttpException(e.response.data, e.response.status);
       } else if (e.request) {
         throw new Error(`Failed to send message. request: ${e.request}`);
       } else {

@@ -8,7 +8,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { AccountType } from 'src/entities/chatgpt-account';
-import { CreateAccountRequestBody } from './chatgpt.dto';
+import { ChatGPTCompletionBody, CreateAccountRequestBody } from './chatgpt.dto';
 import { ChatgptService } from './chatgpt.service';
 
 @Controller('chatgpt')
@@ -52,7 +52,7 @@ export class ChatgptController {
   }
 
   @Post('completion')
-  async completion (@Body() body: any) {
+  async completion (@Body() body: ChatGPTCompletionBody) {
     return this.chatgptService.completion(body);
   }
 

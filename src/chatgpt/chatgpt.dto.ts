@@ -1,4 +1,5 @@
-import { IsIn, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsBoolean, IsDefined, IsIn, IsNumber, IsObject, IsOptional, IsString, Max, Min, ValidateNested } from 'class-validator';
 import { AccountType } from 'src/entities/chatgpt-account';
 
 export const chatGPTModels = [
@@ -6,12 +7,60 @@ export const chatGPTModels = [
   'gpt-3.5-turbo-0301',
 ];
 
-// TODO: finish this object definition
-export class ChatGPTRequestBody {
+export class ChatGPTCompletionMessage {
+  @IsIn(['system', 'user', 'assistant'])
+  role: 'system' | 'user' | 'assistant'
+
+  @IsString()
+  content: string
+}
+
+export class ChatGPTCompletionBody {
   @IsIn(chatGPTModels)
   model: string
 
-  messages: []
+  @ValidateNested({ each: true })
+  @Type(() => ChatGPTCompletionMessage)
+  @IsDefined()
+  messages: ChatGPTCompletionMessage[]
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(2)
+  temperature?: number
+
+  @IsNumber()
+  @IsOptional()
+  n?: number
+
+  @IsBoolean()
+  @IsOptional()
+  stream?: boolean
+
+  @IsString()
+  @IsOptional()
+  stop?: string
+
+  @IsNumber()
+  @IsOptional()
+  max_tokens?: number
+
+  @IsNumber()
+  @IsOptional()
+  @Min(-2)
+  @Max(2)
+  presence_penalty?: number
+
+  @IsNumber()
+  @IsOptional()
+  @Min(-2)
+  @Max(2)
+  frequency_penalty?: number
+
+  @IsObject()
+  @IsOptional()
+  logit_bias?: object
 }
 
 export class CreateAccountRequestBody {

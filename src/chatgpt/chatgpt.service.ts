@@ -7,7 +7,7 @@ import { AccountStatus } from 'src/entities';
 import { ExecQueueService } from 'src/exec-queue/exec-queue.service';
 import { ConfigService } from '@nestjs/config';
 import OfficialChatGPTService from './chatgpt-pool/official-chatgpt.service';
-import { CreateAccountRequestBody } from './chatgpt.dto';
+import { ChatGPTCompletionBody, CreateAccountRequestBody } from './chatgpt.dto';
 
 @Injectable()
 export class ChatgptService implements OnModuleInit {
@@ -96,7 +96,7 @@ export class ChatgptService implements OnModuleInit {
     }
   }
 
-  async completion (body: any) {
+  async completion (body: ChatGPTCompletionBody) {
     if (!this.apiMode) {
       throw new Error(`Can not use completion api with none api mode`);
     }
