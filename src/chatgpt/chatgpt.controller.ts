@@ -6,6 +6,7 @@ import {
   Param,
   HttpException,
   HttpStatus,
+  StreamableFile,
 } from '@nestjs/common';
 import { AccountType } from 'src/entities/chatgpt-account';
 import { ChatGPTCompletionBody, CreateAccountRequestBody } from './chatgpt.dto';
@@ -53,7 +54,12 @@ export class ChatgptController {
 
   @Post('completion')
   async completion (@Body() body: ChatGPTCompletionBody) {
-    return this.chatgptService.completion(body);
+    const result = await this.chatgptService.completion(body);
+    if (body.stream) {
+      return new StreamableFile(result);
+    } else {
+      return result;
+    }
   }
 
   private validateCreateAccountBody (createAccountBody: CreateAccountRequestBody) {

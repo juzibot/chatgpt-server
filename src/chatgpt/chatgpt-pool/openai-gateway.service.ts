@@ -54,6 +54,7 @@ export class OpenAIGatewayService {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
         },
+        responseType: data.stream ? 'stream' : 'json',
         data: JSON.stringify(data),
         timeout: 1 * MINUTE,
       });
@@ -88,6 +89,7 @@ export class OpenAIGatewayService {
           'Content-Type': 'application/json',
           'api-key': apiKey,
         },
+        responseType: data.stream ? 'stream' : 'json',
         data,
         timeout: 1 * MINUTE,
       });
