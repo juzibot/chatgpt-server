@@ -5,6 +5,7 @@ import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ChatgptModule } from './chatgpt/chatgpt.module';
 import { ChatgptApiSessionModule } from './chatgpt-api-session/chatgpt-api-session.module';
 import { AccountWeightModule } from './account-weight/account-weight.module';
+import { ProxyModule } from './proxy/proxy.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -30,6 +31,7 @@ import configuration from './config/configuration';
     ChatgptModule,
     ChatgptApiSessionModule,
     AccountWeightModule,
+    ProxyModule,
   ],
 })
 export class AppModule {}
